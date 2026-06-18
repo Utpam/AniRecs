@@ -1,0 +1,113 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: 'Hanken-Bold';
+  src: url(./assets/HankenGrotesk-Bold.ttf);
+}
+@font-face {
+  font-family: 'Hanken-Black';
+  src: url(./assets/HankenGrotesk-Black.ttf);
+}
+@font-face {
+  font-family: 'Hanken-Med';
+  src: url(./assets/HankenGrotesk-Medium.ttf);
+}
+@font-face {
+  font-family: 'Hanken-Reg';
+  src: url(./assets/HankenGrotesk-Regular.ttf);
+}
+@font-face {
+  font-family: 'Hanken-light';
+  src: url(./assets/HankenGrotesk-Light.ttf);
+}
+
+@theme {
+  --font-hanken-reg: "Hanken-Reg", sans-serif;
+  --font-hanken-light: "Hanken-light", sans-serif;
+  --font-hanken-med: "Hanken-Med", sans-serif;
+  --font-hanken-bold: "Hanken-Bold", sans-serif;
+  --font-hanken-black: "Hanken-Black", sans-serif;
+
+  --color-primary: #E95D81;
+  --color-primary-dark: #660028;
+  --color-primary-light: #8B123C;
+  --color-secondary: #2D1B22;
+  --color-tertiary: #FADADD;
+  --color-neutral: #1A1216;
+
+  --animate-slideRight: slideRight 0.5s ease-in-out;
+  @keyframes slideRight{
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(10px);
+    opacity: 0;
+  } 
+}
+}
+
+::-webkit-scrollbar {
+  position: absolute;
+  width: 5px;
+  opacity: 0%; 
+}
+
+::-webkit-scrollbar-thumb {
+  /* background: var(--color-tertiary);  */
+  background: #ffffff6e; 
+  border-radius: 8px;                     /* Rounded thumb corners */
+  /* border: 2px solid #f1f1f1;   */
+}
+::-webkit-scrollbar-track {
+  background-color: var(--color-neutral);
+  border-radius: 8px; 
+}
+
+
+
+:root {
+  background-color: var(--color-neutral);
+  color: var(--color-tertiary);
+}
+
+.bgImg {
+  z-index: -1;
+}
+
+.multi-line {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;      /* Number of lines to show */
+  -webkit-box-orient: vertical;  
+  overflow: hidden;
+}
+
+.slick-next:before,
+.slick-prev:before {
+  display: none;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.03) 25%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0.03) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite linear;
+}
+
+
+
+
