@@ -6,7 +6,7 @@ import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import { sendMail } from './src/Utils/EmailSender.js';
 
-dotenv.config({path: '/.env'});
+dotenv.config();
 
 const PORT = process.env.PORT;
 const app = express();
@@ -17,12 +17,16 @@ const app = express();
 connectDB();
 initCronJobs();
 
+console.log("CORS_ORIGIN:", process.env.CORS_ORIGIN);
+console.log("CORS_FRONTEND_ORIGIN:", process.env.CORS_FRONTEND_ORIGIN);
 
 // Middleware
-app.use(cors({  
-    origin: [process.env.CORS_ORIGIN, process.env.CORS_FRONTEND_ORIGIN],
-    credentials: true,
-}));
+// app.use(cors({  
+//     origin: [process.env.CORS_ORIGIN, process.env.CORS_FRONTEND_ORIGIN],
+//     credentials: true,
+// }));
+
+app.use(cors())
 
 app.use(cookieParser());
 app.use(express.json());
@@ -43,7 +47,7 @@ app.use('/api/anime', animeRouter);
 app.use('/api/recommendations', recommendationRouter);
 app.use('/api/community', communityRouter);
 app.use('/api/search', searchRouter);
-app.get('/home-feed', getHomeFeed);
+app.get('/api/home-feed', getHomeFeed);
 
 app.listen(PORT, () => {
     console.log("Server Is Running on : ", PORT);
