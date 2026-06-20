@@ -10,7 +10,13 @@ export const GenerateAccessAndRefreshToken = async (res, userId) => {
         const accessToken = await user.generateAccessToken();
         const refreshToken = await user.generateRefreshToken();
 
-        await res.cookie('accessToken', accessToken, {httpOnly: true, maxAge: 1 * 24 * 60 * 60 * 1000})
+        const isProduction = process.env.NODE_ENV === 'production';
+        await res.cookie('accessToken', accessToken, {
+            httpOnly: true,
+            secure: isProduction,           // HTTPS only in production
+            sameSite: isProduction ? 'none' : 'lax', // cross-site in prod, lax in dev
+            maxAge: 1 * 24 * 60 * 60 * 1000  // 1 day in ms
+        });
         
         user.refreshToken = refreshToken;
         await user.save({ validateBeforeSave: false });

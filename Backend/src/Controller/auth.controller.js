@@ -121,7 +121,12 @@ export const logout = async (req, res) => {
     const decodedToken = await jwt.decode(accessToken);
     const user = await User.findById(decodedToken._id);
 
-    res.clearCookie('accessToken');
+    const isProduction = process.env.NODE_ENV === 'production';
+    res.clearCookie('accessToken', {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: isProduction ? 'none' : 'lax',
+    });
 
     await User.updateOne(
         {_id: decodedToken._id},

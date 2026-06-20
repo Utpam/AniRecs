@@ -107,7 +107,7 @@ function HomePage() {
     setLoading(true);
     try {
       const response = await axios.get(
-        `${import.meta.env.VITE_BASE_URL}/home-feed`,
+        `${import.meta.env.VITE_BASE_URL}/api/home-feed`,
         { withCredentials: true }
       );
       setFeedData(response.data);
