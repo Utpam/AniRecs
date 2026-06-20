@@ -42,7 +42,6 @@
 - [Developer Commands](#-developer-commands)
 - [Troubleshooting](#-troubleshooting)
 - [FAQ](#-faq)
-- [Roadmap](#-roadmap)
 - [Contributing](#-contributing)
 - [License](#-license)
 
@@ -1008,26 +1007,6 @@ Restart the backend after changing `.env`.
 **Q: How do I add more anime to the catalog?**
 > Re-run `GET /api/anime/set`. The endpoint upserts records, so existing anime will be refreshed and new titles will be added. After ingestion, recompute feature vectors via `/api/recommendations/precompute-vectors`.
 
----
-
-## 🗺 Roadmap
-
-The following features are planned for future versions:
-
-| Feature | Status |
-|---|---|
-| Collaborative Filtering layer | 🔲 Planned |
-| Anime Collections (themed user lists) | 🔲 Planned |
-| Friends & social follow system | 🔲 Planned |
-| Recommendation analytics dashboard | 🔲 Planned |
-| AI-generated recommendation explanations | 🔲 Planned |
-| Mobile app (React Native) | 🔲 Planned |
-| Offline metadata caching (service worker) | 🔲 Planned |
-| Manga support | 🔲 Planned |
-| List import from AniList / MAL | 🔲 Planned |
-| Discord Rich Presence integration | 🔲 Planned |
-
----
 
 ## 🤝 Contributing
 
