@@ -3,7 +3,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import axios from 'axios';
 import { NavLink, useNavigate } from 'react-router-dom';
 import HeroSection from '../Components/HeroSection.jsx';
-import { AnimeCardSkeleton, PageLoader, HomePageSkeleton, CarouselSkeleton } from '../Components/Loader';
+import { AnimeCardSkeleton, HomePageSkeleton, CarouselSkeleton } from '../Components/Loader';
 import { login, showToast, toggleListOptimistic } from '../../store/AuthSlice.js';
 import AnimeCard from '../Components/AnimeCard.jsx';
 

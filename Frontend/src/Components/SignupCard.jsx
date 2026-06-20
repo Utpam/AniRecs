@@ -1,15 +1,13 @@
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import AniRecsLogo from '../assets/AniRecsLogo.svg'
-import Input from './Input'
 import usericon from '../assets/user.svg'
 import locked from '../assets/locked-computer.svg'
-import Button from './Button'
 import show from '../assets/show.svg'
 import hide from '../assets/hide.svg'
 import emailIcon from '../assets/email.svg'
 import { NavLink, useNavigate } from 'react-router-dom'
 import axios from 'axios'
-import {BtnLoader, PageLoader} from './Loader.jsx'
+import { BtnLoader } from './Loader.jsx'
 import { useSelector, useDispatch } from 'react-redux';
 import {login} from '../../store/AuthSlice.js'
 

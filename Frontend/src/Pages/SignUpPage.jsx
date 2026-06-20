@@ -1,5 +1,5 @@
 import React from 'react'
-import SignUpCard from '../Components/SignUpCard.jsx'
+import SignUpCard from '../Components/SignupCard.jsx'
 
 function SignUpPage() {
   return (

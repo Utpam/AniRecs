@@ -1,6 +1,5 @@
 import React from 'react'
 import LoginCard from '../Components/LoginCard'
-import bg1 from '../assets/Bg1.svg'
 import FallingParticles from '../Components/FallingParticles'
 
 function LoginPage() {
