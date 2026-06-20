@@ -33,13 +33,13 @@ function SuggestionItem({ item, onSelect }) {
 
 // ─── Search bar with live suggestions ─────────────────────────────────────────
 function SearchBar({ className = '' }) {
-  const [query,       setQuery]       = useState('');
+  const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState([]);
-  const [open,        setOpen]        = useState(false);
-  const [fetching,    setFetching]    = useState(false);
+  const [open, setOpen] = useState(false);
+  const [fetching, setFetching] = useState(false);
   const debounceRef = useRef(null);
-  const inputRef    = useRef(null);
-  const navigate    = useNavigate();
+  const inputRef = useRef(null);
+  const navigate = useNavigate();
 
   // Global keyboard shortcut: "/" focuses the bar
   useEffect(() => {
@@ -95,7 +95,7 @@ function SearchBar({ className = '' }) {
 
   const handleKeyDown = (e) => {
     if (e.key === 'Escape') { setOpen(false); inputRef.current?.blur(); }
-    if (e.key === 'Enter')  handleSubmit();
+    if (e.key === 'Enter') handleSubmit();
   };
 
   return (
@@ -152,9 +152,9 @@ function SearchBar({ className = '' }) {
 // ─── Profile Avatar Dropdown ──────────────────────────────────────────────────
 function ProfileDropdown({ userData }) {
   const [open, setOpen] = useState(false);
-  const dropdownRef     = useRef(null);
-  const dispatch        = useDispatch();
-  const navigate        = useNavigate();
+  const dropdownRef = useRef(null);
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
 
   // Close on outside click
   useEffect(() => {
@@ -178,8 +178,8 @@ function ProfileDropdown({ userData }) {
   };
 
   const username = userData?.username || 'User';
-  const avatar   = userData?.avatar   || '';
-  const initial  = username.charAt(0).toUpperCase();
+  const avatar = userData?.avatar || '';
+  const initial = username.charAt(0).toUpperCase();
 
   return (
     <div ref={dropdownRef} className="relative">
@@ -241,8 +241,7 @@ function ProfileDropdown({ userData }) {
               onClick={() => setOpen(false)}
               role="menuitem"
               className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-2.5 text-[13px] transition-colors cursor-pointer ${
-                  isActive ? 'text-primary bg-primary/10' : 'text-gray-300 hover:text-white hover:bg-white/5'
+                `flex items-center gap-3 px-4 py-2.5 text-[13px] transition-colors cursor-pointer ${isActive ? 'text-primary bg-primary/10' : 'text-gray-300 hover:text-white hover:bg-white/5'
                 }`
               }
             >
@@ -257,8 +256,7 @@ function ProfileDropdown({ userData }) {
               onClick={() => setOpen(false)}
               role="menuitem"
               className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-2.5 text-[13px] transition-colors cursor-pointer ${
-                  isActive ? 'text-primary bg-primary/10' : 'text-gray-300 hover:text-white hover:bg-white/5'
+                `flex items-center gap-3 px-4 py-2.5 text-[13px] transition-colors cursor-pointer ${isActive ? 'text-primary bg-primary/10' : 'text-gray-300 hover:text-white hover:bg-white/5'
                 }`
               }
             >
@@ -273,8 +271,7 @@ function ProfileDropdown({ userData }) {
               onClick={() => setOpen(false)}
               role="menuitem"
               className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-2.5 text-[13px] transition-colors cursor-pointer ${
-                  isActive ? 'text-primary bg-primary/10' : 'text-gray-300 hover:text-white hover:bg-white/5'
+                `flex items-center gap-3 px-4 py-2.5 text-[13px] transition-colors cursor-pointer ${isActive ? 'text-primary bg-primary/10' : 'text-gray-300 hover:text-white hover:bg-white/5'
                 }`
               }
             >
@@ -308,12 +305,11 @@ function ProfileDropdown({ userData }) {
 // ─── Main Navbar ──────────────────────────────────────────────────────────────
 function Navbar() {
   const authStatus = useSelector(state => state.auth.status);
-  const userData   = useSelector(state => state.auth.userData);
+  const userData = useSelector(state => state.auth.userData);
 
   const Navlinks = [
-    { text: 'Explore',   path: '/explore'  },
-    { text: 'Genre',     path: '/genres'   },
-    { text: 'Top Rated', path: '/topRated' },
+    { text: 'Explore', path: '/explore' },
+    { text: 'Genre', path: '/genres' },
   ];
 
   return (
@@ -382,12 +378,11 @@ export const VerticalNavbar = () => {
   const authStatus = useSelector(state => state.auth.status);
 
   const Navlinks = [
-    { text: 'Home',         path: '/home'        },
-    { text: 'Explore',      path: '/explore'     },
-    { text: 'Genre',        path: '/genres'      },
-    { text: 'Top Anime',    path: '/topRated'    },
+    { text: 'Home', path: '/home' },
+    { text: 'Explore', path: '/explore' },
+    { text: 'Genre', path: '/genres' },
     { text: 'New Releases', path: '/new-release' },
-    { text: 'Watchlist',    path: '/watchlist'   },
+    { text: 'Watchlist', path: '/watchlist' },
   ];
 
   return (

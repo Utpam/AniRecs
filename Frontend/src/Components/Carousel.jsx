@@ -128,7 +128,7 @@ function Carousel({ elements = [], isLoading = false }) {
                         </div>
                     </div>
                 ) : (
-                    <NavLink key={item.mal_id} className="mx-2 px-1 group" to={`/anime/${item.title}/${item.mal_id}`} >
+                    <NavLink key={item.mal_id} className="mx-2 px-1 group" to={`/anime/${encodeURIComponent(item.title)}/${item.mal_id}`} >
                         <div
                           className="bg-[#28161D] group rounded-sm border border-white/10 hover:border-tertiary transition-all duration-300 hover:border-tertiray hover:shadow-xl cursor-pointer overflow-hidden">
                               <img src={item.image} alt={item.title} className="w-full group-hover:scale-105 transition-all duration-400 aspect-3/4 object-cover" />

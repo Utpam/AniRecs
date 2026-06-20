@@ -68,7 +68,7 @@ export const getProfileDashboard = async (req, res) => {
                 poster: anime?.image || '',
                 score: anime?.score || 0,
                 communityRating: anime?.averageUserRating || 0,
-                genres: anime?.genres?.map(g => typeof g === 'string' ? g : g.name) || [],
+                genres: ((anime?.genre && anime.genre.length) ? anime.genre : (anime?.genres || [])).map(g => typeof g === 'string' ? g : g.name) || [],
             };
         });
 
@@ -80,7 +80,7 @@ export const getProfileDashboard = async (req, res) => {
                 poster: anime?.image || '',
                 score: anime?.score || 0,
                 communityRating: anime?.averageUserRating || 0,
-                genres: anime?.genres?.map(g => typeof g === 'string' ? g : g.name) || [],
+                genres: ((anime?.genre && anime.genre.length) ? anime.genre : (anime?.genres || [])).map(g => typeof g === 'string' ? g : g.name) || [],
             };
         });
 

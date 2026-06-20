@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, memo } from 'react';
-import { useSearchParams, NavLink } from 'react-router-dom';
+import { useSearchParams, NavLink, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import axios from 'axios';
 import { SearchSkeleton } from '../Components/Loader';
@@ -24,6 +24,8 @@ const SORT_OPTIONS = [
 export default function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const userData  = useSelector(state => state.auth.userData);
+  const authStatus = useSelector(state => state.auth.status);
+  const navigate  = useNavigate();
   const dispatch  = useDispatch();
   const pendingRef = useRef({});
 
@@ -31,7 +33,6 @@ export default function SearchPage() {
   const queryParam = searchParams.get('q') || '';
   const genreParam = searchParams.get('genre') || 'All';
   const sortParam  = searchParams.get('sort')  || 'score';
-  const pageParam  = parseInt(searchParams.get('page') || '1', 10);
 
   const [inputValue, setInputValue] = useState(queryParam);
   const [results,   setResults]     = useState([]);
@@ -39,6 +40,11 @@ export default function SearchPage() {
   const [loading,   setLoading]     = useState(false);
   const [watchlist, setWatchlist]   = useState([]);
   const [favorites, setFavorites]   = useState([]);
+
+  // Local pagination states
+  const [page, setPage] = useState(1);
+  const [isFetchingNextPage, setIsFetchingNextPage] = useState(false);
+  const prevFiltersRef = useRef({ q: null, genre: null, sort: null });
 
   // Sync lists from Redux
   useEffect(() => {
@@ -50,25 +56,53 @@ export default function SearchPage() {
   useEffect(() => { setInputValue(queryParam); }, [queryParam]);
 
   // ── Fetch results ──────────────────────────────────────────────────────
-  const fetchResults = useCallback(async (q, genre, sort, page) => {
-    setLoading(true);
+  const fetchResults = useCallback(async (q, genre, sort, pageNum, isLoadMore = false) => {
+    if (isLoadMore) {
+      setIsFetchingNextPage(true);
+    } else {
+      setLoading(true);
+    }
     try {
-      const params = new URLSearchParams({ q, sort, page, limit: 24 });
+      const params = new URLSearchParams({ q, sort, page: pageNum, limit: 24 });
       if (genre && genre !== 'All') params.set('genre', genre);
       const res = await axios.get(`${BASE}/api/search?${params}`);
-      setResults(res.data.results || []);
-      setPagination(res.data.pagination || null);
+      
+      const newResults = res.data.results || [];
+      const paginationData = res.data.pagination || null;
+
+      setResults(prev => {
+        if (isLoadMore) {
+          const existingIds = new Set(prev.map(item => String(item.animeId || item.mal_id)));
+          const filteredNew = newResults.filter(item => !existingIds.has(String(item.animeId || item.mal_id)));
+          return [...prev, ...filteredNew];
+        } else {
+          return newResults;
+        }
+      });
+      setPagination(paginationData);
     } catch (err) {
       console.error('Search fetch error:', err);
-      setResults([]);
+      if (!isLoadMore) setResults([]);
     } finally {
       setLoading(false);
+      setIsFetchingNextPage(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchResults(queryParam, genreParam, sortParam, pageParam);
-  }, [queryParam, genreParam, sortParam, pageParam, fetchResults]);
+    const filtersChanged = 
+      prevFiltersRef.current.q !== queryParam ||
+      prevFiltersRef.current.genre !== genreParam ||
+      prevFiltersRef.current.sort !== sortParam;
+
+    if (filtersChanged) {
+      prevFiltersRef.current = { q: queryParam, genre: genreParam, sort: sortParam };
+      setPage(1);
+      fetchResults(queryParam, genreParam, sortParam, 1, false);
+    } else if (page > 1) {
+      fetchResults(queryParam, genreParam, sortParam, page, true);
+    }
+  }, [queryParam, genreParam, sortParam, page, fetchResults]);
 
   // ── URL helpers ────────────────────────────────────────────────────────
   const pushParam = (key, value) => {
@@ -85,6 +119,11 @@ export default function SearchPage() {
 
   // ── List toggles with optimistic updates ───────────────────────────────
   const handleWatchlistToggle = useCallback(async (animeId) => {
+    if (!authStatus) {
+      dispatch(showToast({ message: "Create an account to save anime, rate shows, and personalize recommendations.", type: "info" }));
+      navigate('/login');
+      return;
+    }
     const key = `wl-${animeId}`;
     if (pendingRef.current[key]) return;
     pendingRef.current[key] = true;
@@ -105,9 +144,14 @@ export default function SearchPage() {
     } finally {
       delete pendingRef.current[key];
     }
-  }, [watchlist, dispatch]);
+  }, [watchlist, dispatch, authStatus, navigate]);
 
   const handleFavoriteToggle = useCallback(async (animeId) => {
+    if (!authStatus) {
+      dispatch(showToast({ message: "Create an account to save anime, rate shows, and personalize recommendations.", type: "info" }));
+      navigate('/login');
+      return;
+    }
     const key = `fav-${animeId}`;
     if (pendingRef.current[key]) return;
     pendingRef.current[key] = true;
@@ -128,7 +172,7 @@ export default function SearchPage() {
     } finally {
       delete pendingRef.current[key];
     }
-  }, [favorites, dispatch]);
+  }, [favorites, dispatch, authStatus, navigate]);
 
   // ── Render ─────────────────────────────────────────────────────────────
   const hasQuery = queryParam.length > 0 || genreParam !== 'All';
@@ -224,7 +268,7 @@ export default function SearchPage() {
         )}
 
         {/* ── Content ── */}
-        {loading ? (
+        {loading && page === 1 ? (
           <SearchSkeleton />
         ) : results.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-32 gap-4 text-center">
@@ -261,46 +305,37 @@ export default function SearchPage() {
                   onFavoriteToggle={handleFavoriteToggle}
                 />
               ))}
+
+              {isFetchingNextPage && (
+                [...Array(12)].map((_, i) => (
+                  <div key={`skeleton-${i}`} className="flex flex-col space-y-3">
+                    <div className="aspect-[3/4] rounded-xl bg-white/5 skeleton-shimmer animate-pulse" />
+                    <div className="h-4 w-4/5 rounded bg-white/10 skeleton-shimmer" />
+                  </div>
+                ))
+              )}
             </div>
 
-            {/* ── Pagination ── */}
-            {pagination && pagination.totalPages > 1 && (
-              <div className="flex items-center justify-center gap-2 mt-12">
+            {/* ── Load More button ── */}
+            {pagination && pagination.hasMore && (
+              <div className="flex justify-center mt-12">
                 <button
-                  disabled={pagination.page <= 1}
-                  onClick={() => pushParam('page', String(pagination.page - 1))}
-                  className="px-4 py-2 rounded-xl text-sm font-hanken-med bg-white/5 border border-white/10 text-gray-300 hover:border-primary/50 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
+                  onClick={() => {
+                    if (!isFetchingNextPage) {
+                      setPage(prev => prev + 1);
+                    }
+                  }}
+                  disabled={isFetchingNextPage}
+                  className="px-8 py-3 bg-primary hover:bg-primary/80 disabled:opacity-50 text-white font-hanken-bold rounded-2xl transition cursor-pointer shadow-lg hover:shadow-primary/20 flex items-center gap-2"
                 >
-                  ← Prev
-                </button>
-
-                {/* Page numbers (window of 5) */}
-                {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
-                  const half  = Math.floor(5 / 2);
-                  let start   = Math.max(1, pagination.page - half);
-                  const end   = Math.min(pagination.totalPages, start + 4);
-                  start       = Math.max(1, end - 4);
-                  return start + i;
-                }).filter(n => n >= 1 && n <= pagination.totalPages).map(n => (
-                  <button
-                    key={n}
-                    onClick={() => pushParam('page', String(n))}
-                    className={`w-10 h-10 rounded-xl text-sm font-hanken-med border transition cursor-pointer ${
-                      n === pagination.page
-                        ? 'bg-primary border-primary text-white'
-                        : 'bg-white/5 border-white/10 text-gray-400 hover:border-primary/50 hover:text-white'
-                    }`}
-                  >
-                    {n}
-                  </button>
-                ))}
-
-                <button
-                  disabled={!pagination.hasMore}
-                  onClick={() => pushParam('page', String(pagination.page + 1))}
-                  className="px-4 py-2 rounded-xl text-sm font-hanken-med bg-white/5 border border-white/10 text-gray-300 hover:border-primary/50 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
-                >
-                  Next →
+                  {isFetchingNextPage ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    'Load More'
+                  )}
                 </button>
               </div>
             )}

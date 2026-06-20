@@ -45,7 +45,7 @@ async function jikanGet(url, params = {}) {
 }
 
 // ── Retry wrapper ──────────────────────────────────────────────────────────────
-async function jikanGetWithRetry(url, params = {}, retries = 3) {
+export async function jikanGetWithRetry(url, params = {}, retries = 3) {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       return await jikanGet(url, params);

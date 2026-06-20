@@ -28,8 +28,11 @@ function App() {
 
         {/* ── Protected routes (require login) ── */}
         <Route element={<ProtectedRoute />}>
-          <Route path='profile'  element={<ProfilePage />} />
-          <Route path='discover' element={<RecommendationPage />} />
+          <Route path='profile'                  element={<ProfilePage />} />
+          <Route path='recommendations/settings' element={<ProfilePage />} />
+          <Route path='account'                  element={<ProfilePage />} />
+          <Route path='user/*'                   element={<ProfilePage />} />
+          <Route path='discover'                 element={<RecommendationPage />} />
         </Route>
 
       </Route>

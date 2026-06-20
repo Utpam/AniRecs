@@ -36,7 +36,7 @@ export function calculateCosineSimilarity(vectorA, vectorB) {
 export function computeFeatureVector(anime) {
   const vector = {};
   
-  const genres = anime.genres || anime.genre || [];
+  const genres = (anime.genre && anime.genre.length) ? anime.genre : (anime.genres || []);
   const themes = anime.themes || [];
   const demographics = anime.demographics || [];
   const studios = anime.studios || [];
@@ -215,7 +215,7 @@ export function buildUserGenreThemeCounts(user, animeDocsMap) {
     const anime = animeDocsMap.get(String(animeId));
     if (!anime) return;
     
-    const genres = anime.genres || anime.genre || [];
+    const genres = (anime.genre && anime.genre.length) ? anime.genre : (anime.genres || []);
     genres.forEach(g => {
       const name = typeof g === 'string' ? g : g.name;
       if (name) counts[`genre:${name}`] = (counts[`genre:${name}`] || 0) + 1;
@@ -250,7 +250,7 @@ export function buildUserGenreThemeCounts(user, animeDocsMap) {
  * @returns {number} - NoveltyScore (0 to 100)
  */
 export function calculateNoveltyScore(anime, userCounts) {
-  const genres = anime.genres || anime.genre || [];
+  const genres = (anime.genre && anime.genre.length) ? anime.genre : (anime.genres || []);
   const themes = anime.themes || [];
   
   const totalCounts = Object.values(userCounts);
@@ -304,7 +304,7 @@ export function runMMR(candidates, limit, theta = 0.8) {
       const cand = candidatePool[i];
       
       let genreLimitExceeded = false;
-      const genres = cand.genres || cand.genre || [];
+      const genres = (cand.genre && cand.genre.length) ? cand.genre : (cand.genres || []);
       genres.forEach(g => {
         const name = typeof g === 'string' ? g : g.name;
         if (name && genreCounts[name] >= 3) genreLimitExceeded = true;
@@ -359,7 +359,7 @@ export function runMMR(candidates, limit, theta = 0.8) {
     const bestCand = candidatePool.splice(bestCandidateIdx, 1)[0];
     selected.push(bestCand);
     
-    const bestGenres = bestCand.genres || bestCand.genre || [];
+    const bestGenres = (bestCand.genre && bestCand.genre.length) ? bestCand.genre : (bestCand.genres || []);
     bestGenres.forEach(g => {
       const name = typeof g === 'string' ? g : g.name;
       if (name) genreCounts[name] = (genreCounts[name] || 0) + 1;
@@ -387,7 +387,7 @@ export function runMMR(candidates, limit, theta = 0.8) {
  */
 export function generateExplanation(anime, userVector, isRisky = false) {
   const reasons = [];
-  const genres = anime.genres || anime.genre || [];
+  const genres = (anime.genre && anime.genre.length) ? anime.genre : (anime.genres || []);
   
   if (isRisky) {
     reasons.push("Discovery recommendation");

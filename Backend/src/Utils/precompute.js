@@ -19,7 +19,7 @@ async function run() {
       
       let tags = anime.tags || [];
       if (tags.length === 0) {
-        const genres = anime.genres || anime.genre || [];
+        const genres = (anime.genre && anime.genre.length) ? anime.genre : (anime.genres || []);
         const themes = anime.themes || [];
         const demographics = anime.demographics || [];
         const gTags = genres.map(g => (g.name || g || '').toLowerCase());

@@ -59,11 +59,6 @@ function HomePageLayout() {
 
   return (
     <div className=''>
-        {
-        !authStatus ? <img src={'./bg2.svg'} className={`opacity-20 absolute bg-cover bgImg fixed`}/>
-        :
-        <img src={'./bg2.svg'} className={` bg-cover bgImg fixed mix-blend-soft-light`}/>
-        }
         <FallingParticles />
         <Navbar />
         {authStatus && userData && !userData.onboardingCompleted && (

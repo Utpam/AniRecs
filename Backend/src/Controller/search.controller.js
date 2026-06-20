@@ -1,4 +1,7 @@
 import { AnimeDoc } from '../Model/Anime.model.js';
+import { AnimeMetadata } from '../Model/AnimeMetadata.model.js';
+import { lightweightImport } from '../Utils/importService.js';
+import { jikanGetWithRetry } from '../Utils/jikanGenreService.js';
 
 /**
  * GET /api/search?q=&genre=&sort=score&page=1&limit=24
@@ -45,7 +48,6 @@ export const searchAnime = async (req, res) => {
     if (genre && genre !== 'All') {
       filter.$or = [
         ...(filter.$or || []),
-        { 'genres.name': { $regex: new RegExp(genre, 'i') } },
         { 'genre.name':  { $regex: new RegExp(genre, 'i') } },
         { tags:          { $regex: new RegExp(genre, 'i') } },
       ];
@@ -56,7 +58,6 @@ export const searchAnime = async (req, res) => {
           { $or: [{ title: { $regex: titleRegex } }, { synopsis: { $regex: titleRegex } }] },
           {
             $or: [
-              { 'genres.name': { $regex: new RegExp(genre, 'i') } },
               { 'genre.name':  { $regex: new RegExp(genre, 'i') } },
               { tags:          { $regex: new RegExp(genre, 'i') } },
             ],
@@ -65,7 +66,6 @@ export const searchAnime = async (req, res) => {
         delete filter.$or;
       } else {
         filter.$or = [
-          { 'genres.name': { $regex: new RegExp(genre, 'i') } },
           { 'genre.name':  { $regex: new RegExp(genre, 'i') } },
           { tags:          { $regex: new RegExp(genre, 'i') } },
         ];
@@ -82,15 +82,43 @@ export const searchAnime = async (req, res) => {
     const sortOrder = sortMap[sort] || sortMap.score;
 
     // ── Query ─────────────────────────────────────────────────────────────
-    const [docs, total] = await Promise.all([
-      AnimeDoc.find(filter)
-        .sort(sortOrder)
-        .skip(skip)
-        .limit(limitNum)
-        .select('mal_id title image synopsis genre genres score popularity year averageUserRating ratingCount tags')
-        .lean(),
-      AnimeDoc.countDocuments(filter),
-    ]);
+    let docs = await AnimeDoc.find(filter)
+      .sort(sortOrder)
+      .skip(skip)
+      .limit(limitNum)
+      .select('mal_id title image synopsis genre genres score popularity year averageUserRating ratingCount tags')
+      .lean();
+    let total = await AnimeDoc.countDocuments(filter);
+
+    // ── Hybrid Search Fallback ──────────────────────────────────────────
+    // If local results are insufficient (e.g. less than 6 results) and we have a query, query Jikan.
+    const INSUFFICIENT_THRESHOLD = 6;
+    if (docs.length < INSUFFICIENT_THRESHOLD && trimQ.length > 0 && pageNum === 1) {
+      console.log(`[Search] Insufficient local results (${docs.length}). Querying Jikan fallback...`);
+      try {
+        const jikanRes = await jikanGetWithRetry(`https://api.jikan.moe/v4/anime`, {
+          q: trimQ,
+          limit: 24,
+          sfw: true
+        });
+        const jikanItems = jikanRes?.data || [];
+        if (jikanItems.length > 0) {
+          for (const item of jikanItems) {
+            await lightweightImport(item);
+          }
+          // Re-query local database to incorporate the newly imported anime
+          docs = await AnimeDoc.find(filter)
+            .sort(sortOrder)
+            .skip(skip)
+            .limit(limitNum)
+            .select('mal_id title image synopsis genre genres score popularity year averageUserRating ratingCount tags')
+            .lean();
+          total = await AnimeDoc.countDocuments(filter);
+        }
+      } catch (err) {
+        console.error('[Search] Jikan search fallback failed:', err.message);
+      }
+    }
 
     // ── Shape results ─────────────────────────────────────────────────────
     const results = docs.map(doc => ({
@@ -101,7 +129,7 @@ export const searchAnime = async (req, res) => {
       score:         doc.score || doc.mal_rating || null,
       year:          doc.year || null,
       communityRating: doc.averageUserRating || 0,
-      genres:        (doc.genres?.length ? doc.genres : doc.genre || []).map(g => g.name || g).filter(Boolean),
+      genres:        (doc.genre?.length ? doc.genre : doc.genres || []).map(g => g.name || g).filter(Boolean),
       tags:          doc.tags || [],
     }));
 

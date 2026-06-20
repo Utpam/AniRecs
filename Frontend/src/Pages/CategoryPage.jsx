@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, NavLink } from 'react-router-dom';
+import { useParams, NavLink, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import axios from 'axios';
 import AnimeCard from '../Components/AnimeCard.jsx';
@@ -33,6 +33,8 @@ function CategoryPage() {
   const { genre }  = useParams();
   const dispatch   = useDispatch();
   const userData   = useSelector(state => state.auth.userData);
+  const authStatus = useSelector(state => state.auth.status);
+  const navigate   = useNavigate();
   const pendingRef = useRef({});
 
   const [content,   setContent]   = useState([]);
@@ -72,6 +74,11 @@ function CategoryPage() {
 
   // ── Watchlist toggle ──
   const handleWatchlistToggle = useCallback(async (animeId) => {
+    if (!authStatus) {
+      dispatch(showToast({ message: "Create an account to save anime, rate shows, and personalize recommendations.", type: "info" }));
+      navigate('/login');
+      return;
+    }
     const key = `wl-${animeId}`;
     if (pendingRef.current[key]) return;
     pendingRef.current[key] = true;
@@ -92,10 +99,15 @@ function CategoryPage() {
     } finally {
       delete pendingRef.current[key];
     }
-  }, [watchlist, dispatch]);
+  }, [watchlist, dispatch, authStatus, navigate]);
 
   // ── Favorite toggle ──
   const handleFavoriteToggle = useCallback(async (animeId) => {
+    if (!authStatus) {
+      dispatch(showToast({ message: "Create an account to save anime, rate shows, and personalize recommendations.", type: "info" }));
+      navigate('/login');
+      return;
+    }
     const key = `fav-${animeId}`;
     if (pendingRef.current[key]) return;
     pendingRef.current[key] = true;
@@ -116,7 +128,7 @@ function CategoryPage() {
     } finally {
       delete pendingRef.current[key];
     }
-  }, [favorites, dispatch]);
+  }, [favorites, dispatch, authStatus, navigate]);
 
   return (
     <div className="min-h-screen bg-neutral text-tertiary font-hanken-reg">

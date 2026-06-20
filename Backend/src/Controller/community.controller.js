@@ -1,4 +1,4 @@
-import jwt from 'jsonwebtoken';
+  import jwt from 'jsonwebtoken';
 import { User } from '../Model/User.model.js';
 import { AnimeDoc } from '../Model/Anime.model.js';
 import { AnimeRating } from '../Model/Rating.model.js';

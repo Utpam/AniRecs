@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback, memo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import axios from 'axios';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import HeroSection from '../Components/HeroSection.jsx';
 import { AnimeCardSkeleton, PageLoader, HomePageSkeleton, CarouselSkeleton } from '../Components/Loader';
 import { login, showToast, toggleListOptimistic } from '../../store/AuthSlice.js';
@@ -9,7 +9,7 @@ import AnimeCard from '../Components/AnimeCard.jsx';
 
 // ─── Lazy Row (renders when scrolled into view) ───────────────────────────────
 const LazyRecommendationRow = memo(function LazyRecommendationRow({
-  title, description, items, watchlist, favorites, onWatchlistToggle, onFavoriteToggle, onPlayTrailer
+  title, description, items, watchlist, favorites, onWatchlistToggle, onFavoriteToggle, onPlayTrailer, fallbackMessage
 }) {
   const ref = useRef(null);
   const [visible, setVisible] = useState(false);
@@ -24,7 +24,21 @@ const LazyRecommendationRow = memo(function LazyRecommendationRow({
     return () => observer.disconnect();
   }, []);
 
-  if (!items || items.length === 0) return null;
+  if (!items || items.length === 0) {
+    if (!fallbackMessage) return null;
+    return (
+      <section className="mt-10 animate-[fadeIn_0.5s_ease-out]">
+        <div className="mb-4">
+          <h2 className="text-xl md:text-2xl font-hanken-bold text-white tracking-wide">{title}</h2>
+          {description && <p className="text-xs text-gray-400 font-hanken-light mt-0.5">{description}</p>}
+        </div>
+        <div className="text-gray-500 py-4 text-sm font-hanken-light italic">
+          {fallbackMessage}
+        </div>
+        <hr className="border-white/5 mt-8 w-[98%]" />
+      </section>
+    );
+  }
 
   return (
     <section ref={ref} className="mt-10 animate-[fadeIn_0.5s_ease-out]">
@@ -65,6 +79,7 @@ function HomePage() {
   const authStatus = useSelector(state => state.auth.status);
   const userData   = useSelector(state => state.auth.userData);
   const dispatch   = useDispatch();
+  const navigate   = useNavigate();
 
   // Per-anime pending map to prevent duplicate requests
   const pendingRef = useRef({});
@@ -107,6 +122,11 @@ function HomePage() {
 
   // ─── Optimistic watchlist toggle ────────────────────────────────────────
   const handleWatchlistToggle = useCallback(async (animeId) => {
+    if (!authStatus) {
+      dispatch(showToast({ message: "Create an account to save anime, rate shows, and personalize recommendations.", type: "info" }));
+      navigate('/login');
+      return;
+    }
     const key = `watchlist-${animeId}`;
     if (pendingRef.current[key]) return;            // deduplicate
     pendingRef.current[key] = true;
@@ -135,10 +155,15 @@ function HomePage() {
     } finally {
       delete pendingRef.current[key];
     }
-  }, [watchlist, dispatch]);
+  }, [watchlist, dispatch, authStatus, navigate]);
 
   // ─── Optimistic favorites toggle ─────────────────────────────────────────
   const handleFavoriteToggle = useCallback(async (animeId) => {
+    if (!authStatus) {
+      dispatch(showToast({ message: "Create an account to save anime, rate shows, and personalize recommendations.", type: "info" }));
+      navigate('/login');
+      return;
+    }
     const key = `favorite-${animeId}`;
     if (pendingRef.current[key]) return;
     pendingRef.current[key] = true;
@@ -166,14 +191,14 @@ function HomePage() {
     } finally {
       delete pendingRef.current[key];
     }
-  }, [favorites, dispatch]);
+  }, [favorites, dispatch, authStatus, navigate]);
 
   // ─── Trailer ─────────────────────────────────────────────────────────────
   const handlePlayTrailer = useCallback(async (animeId, title) => {
     setLoadingTrailer(true);
     setIsTrailerModalOpen(true);
     try {
-      const res = await axios.get(`https://api.jikan.moe/v4/anime/${animeId}`);
+      const res = await axios.get(`${import.meta.env.VITE_BASE_URL}/api/anime/${animeId}`, { withCredentials: true });
       const embedUrl = res.data?.data?.trailer?.embed_url;
       if (embedUrl) {
         setActiveTrailerUrl(embedUrl);
@@ -208,166 +233,234 @@ function HomePage() {
 
       <div className="px-6 md:px-12 py-8 max-w-7xl mx-auto">
         {feedData && (
-          <>
-            {authStatus && (
+          !authStatus ? (
+            <>
               <LazyRecommendationRow
-                title="Continue Watching"
-                description="Jump back into titles saved on your watchlist."
-                items={feedData.continueWatching}
+                title="Trending Anime"
+                description="The most popular and active shows right now."
+                items={feedData.trendingForYou}
                 {...rowProps}
               />
-            )}
 
-            <LazyRecommendationRow
-              title="Recommended For You"
-              description="Tuned directly to your anime preference vector."
-              items={feedData.forYou}
-              {...rowProps}
-            />
-
-            <LazyRecommendationRow
-              title="Comedy You'll Love"
-              description="Sleek, hilarious, and highly rated comedy selections."
-              items={feedData.comedyYoullLove}
-              {...rowProps}
-            />
-
-            <LazyRecommendationRow
-              title="Romance Recommendations"
-              description="Heartwarming stories of love, friendship, and drama."
-              items={feedData.romanceRecommendations}
-              {...rowProps}
-            />
-
-            <LazyRecommendationRow
-              title="Slice Of Life Essentials"
-              description="Charming, realistic, and relaxing slice of life stories."
-              items={feedData.sliceOfLifeEssentials}
-              {...rowProps}
-            />
-
-            <LazyRecommendationRow
-              title="Action Essentials"
-              description="Adrenaline-pumping action and high-stakes adventure."
-              items={feedData.actionEssentials}
-              {...rowProps}
-            />
-
-            <LazyRecommendationRow
-              title="Fantasy Picks"
-              description="Magical worlds, mythical creatures, and epic fantasy adventures."
-              items={feedData.fantasyPicks}
-              {...rowProps}
-            />
-
-            <LazyRecommendationRow
-              title="Mystery & Suspense"
-              description="Gripping mysteries, psychological thrillers, and edge-of-seat suspense."
-              items={feedData.mysteryAndSuspense}
-              {...rowProps}
-            />
-
-            <LazyRecommendationRow
-              title="Adventure Anime"
-              description="Grand journeys, exploration, and world-spanning quests."
-              items={feedData.adventureAnime}
-              {...rowProps}
-            />
-
-            <LazyRecommendationRow
-              title="Sci-Fi Recommendations"
-              description="Futuristic science fiction, space opera, and technological wonders."
-              items={feedData.sciFiRecommendations}
-              {...rowProps}
-            />
-
-            <LazyRecommendationRow
-              title="Award Winning Anime"
-              description="Critically acclaimed titles and fan favorites scoring 8.5 or higher."
-              items={feedData.awardWinningAnime}
-              {...rowProps}
-            />
-
-            <LazyRecommendationRow
-              title="Because You Like Action"
-              description="Action-packed shows personalized to your profile weights."
-              items={feedData.becauseLikeAction}
-              {...rowProps}
-            />
-
-            <LazyRecommendationRow
-              title="Because You Like Fantasy"
-              description="Enchanting fantasy and adventure titles curated for you."
-              items={feedData.becauseLikeFantasy}
-              {...rowProps}
-            />
-
-            <LazyRecommendationRow
-              title="Because You Like Psychological"
-              description="Mind-bending psychological thrillers and mystery series."
-              items={feedData.becauseLikePsychological}
-              {...rowProps}
-            />
-
-            {feedData.themeBasedRows?.map((row, idx) => (
               <LazyRecommendationRow
-                key={`theme-${idx}`}
-                title={row.title}
-                description="Tailored selections fitting your favored story themes."
-                items={row.items}
+                title="Top Rated Anime"
+                description="Highest rated shows in the community."
+                items={feedData.forYou}
                 {...rowProps}
               />
-            ))}
 
-            <LazyRecommendationRow
-              title="Trending In Your Genres"
-              description="Most popular and active shows inside your preferred genres."
-              items={feedData.trendingForYou}
-              {...rowProps}
-            />
+              <LazyRecommendationRow
+                title="Seasonal Highlights"
+                description="Top picks from the current and recent seasons."
+                items={feedData.seasonalHighlights}
+                {...rowProps}
+              />
 
-            <LazyRecommendationRow
-              title="More Like Your Favorites"
-              description="Curated selections similar to your high rated or favorite anime."
-              items={feedData.moreLikeFavorites}
-              {...rowProps}
-            />
+              <LazyRecommendationRow
+                title="Award Winning Anime"
+                description="Critically acclaimed masterpieces scoring 8.5 or higher."
+                items={feedData.awardWinningAnime}
+                {...rowProps}
+              />
 
-            <LazyRecommendationRow
-              title="Explore Something New"
-              description="Curated exploration picks outside your typical matching zone."
-              items={feedData.exploreSomethingNew}
-              {...rowProps}
-            />
+              <LazyRecommendationRow
+                title="Comedy You'll Love"
+                description="Sleek, hilarious, and highly rated comedy selections."
+                items={feedData.comedyYoullLove}
+                {...rowProps}
+              />
 
-            <LazyRecommendationRow
-              title="Hidden Gems"
-              description="Under-the-radar selections carrying excellent ratings."
-              items={feedData.hiddenGems}
-              {...rowProps}
-            />
+              <LazyRecommendationRow
+                title="Romance Recommendations"
+                description="Heartwarming stories of love, friendship, and drama."
+                items={feedData.romanceRecommendations}
+                {...rowProps}
+              />
 
-            <LazyRecommendationRow
-              title="Underrated Masterpieces"
-              description="High-score classics with lower popularity metrics."
-              items={feedData.underratedMasterpieces}
-              {...rowProps}
-            />
+              <LazyRecommendationRow
+                title="Slice Of Life Essentials"
+                description="Charming, realistic, and relaxing slice of life stories."
+                items={feedData.sliceOfLifeEssentials}
+                {...rowProps}
+              />
 
-            <LazyRecommendationRow
-              title="Seasonal Highlights"
-              description="Current or recent seasons matched to your preferences."
-              items={feedData.seasonalHighlights}
-              {...rowProps}
-            />
+              <LazyRecommendationRow
+                title="Action Essentials"
+                description="Adrenaline-pumping action and high-stakes adventure."
+                items={feedData.actionEssentials}
+                {...rowProps}
+              />
+            </>
+          ) : (
+            <>
+              {authStatus && (
+                <LazyRecommendationRow
+                  title="Continue Watching"
+                  description="Jump back into titles saved on your watchlist."
+                  items={feedData.continueWatching}
+                  {...rowProps}
+                />
+              )}
 
-            <LazyRecommendationRow
-              title="Top Community Rated Anime"
-              description="Highly rated and reviewed by the AniRecs community."
-              items={feedData.topCommunityRated}
-              {...rowProps}
-            />
-          </>
+              <LazyRecommendationRow
+                title="Recommended For You"
+                description="Tuned directly to your anime preference vector."
+                items={feedData.forYou}
+                {...rowProps}
+              />
+
+              <LazyRecommendationRow
+                title="Comedy You'll Love"
+                description="Sleek, hilarious, and highly rated comedy selections."
+                items={feedData.comedyYoullLove}
+                fallbackMessage="No anime found for this genre."
+                {...rowProps}
+              />
+
+              <LazyRecommendationRow
+                title="Romance Recommendations"
+                description="Heartwarming stories of love, friendship, and drama."
+                items={feedData.romanceRecommendations}
+                fallbackMessage="No anime found for this genre."
+                {...rowProps}
+              />
+
+              <LazyRecommendationRow
+                title="Slice Of Life Essentials"
+                description="Charming, realistic, and relaxing slice of life stories."
+                items={feedData.sliceOfLifeEssentials}
+                fallbackMessage="No anime found for this genre."
+                {...rowProps}
+              />
+
+              <LazyRecommendationRow
+                title="Action Essentials"
+                description="Adrenaline-pumping action and high-stakes adventure."
+                items={feedData.actionEssentials}
+                fallbackMessage="No anime found for this genre."
+                {...rowProps}
+              />
+
+              <LazyRecommendationRow
+                title="Fantasy Picks"
+                description="Magical worlds, mythical creatures, and epic fantasy adventures."
+                items={feedData.fantasyPicks}
+                fallbackMessage="No anime found for this genre."
+                {...rowProps}
+              />
+
+              <LazyRecommendationRow
+                title="Mystery & Suspense"
+                description="Gripping mysteries, psychological thrillers, and edge-of-seat suspense."
+                items={feedData.mysteryAndSuspense}
+                fallbackMessage="No anime found for this genre."
+                {...rowProps}
+              />
+
+              <LazyRecommendationRow
+                title="Adventure Anime"
+                description="Grand journeys, exploration, and world-spanning quests."
+                items={feedData.adventureAnime}
+                fallbackMessage="No anime found for this genre."
+                {...rowProps}
+              />
+
+              <LazyRecommendationRow
+                title="Sci-Fi Recommendations"
+                description="Futuristic science fiction, space opera, and technological wonders."
+                items={feedData.sciFiRecommendations}
+                fallbackMessage="No anime found for this genre."
+                {...rowProps}
+              />
+
+              <LazyRecommendationRow
+                title="Award Winning Anime"
+                description="Critically acclaimed titles and fan favorites scoring 8.5 or higher."
+                items={feedData.awardWinningAnime}
+                {...rowProps}
+              />
+
+              <LazyRecommendationRow
+                title="Because You Like Action"
+                description="Action-packed shows personalized to your profile weights."
+                items={feedData.becauseLikeAction}
+                {...rowProps}
+              />
+
+              <LazyRecommendationRow
+                title="Because You Like Fantasy"
+                description="Enchanting fantasy and adventure titles curated for you."
+                items={feedData.becauseLikeFantasy}
+                {...rowProps}
+              />
+
+              <LazyRecommendationRow
+                title="Because You Like Psychological"
+                description="Mind-bending psychological thrillers and mystery series."
+                items={feedData.becauseLikePsychological}
+                {...rowProps}
+              />
+
+              {feedData.themeBasedRows?.map((row, idx) => (
+                <LazyRecommendationRow
+                  key={`theme-${idx}`}
+                  title={row.title}
+                  description="Tailored selections fitting your favored story themes."
+                  items={row.items}
+                  {...rowProps}
+                />
+              ))}
+
+              <LazyRecommendationRow
+                title="Trending In Your Genres"
+                description="Most popular and active shows inside your preferred genres."
+                items={feedData.trendingForYou}
+                {...rowProps}
+              />
+
+              <LazyRecommendationRow
+                title="More Like Your Favorites"
+                description="Curated selections similar to your high rated or favorite anime."
+                items={feedData.moreLikeFavorites}
+                {...rowProps}
+              />
+
+              <LazyRecommendationRow
+                title="Explore Something New"
+                description="Curated exploration picks outside your typical matching zone."
+                items={feedData.exploreSomethingNew}
+                {...rowProps}
+              />
+
+              <LazyRecommendationRow
+                title="Hidden Gems"
+                description="Under-the-radar selections carrying excellent ratings."
+                items={feedData.hiddenGems}
+                {...rowProps}
+              />
+
+              <LazyRecommendationRow
+                title="Underrated Masterpieces"
+                description="High-score classics with lower popularity metrics."
+                items={feedData.underratedMasterpieces}
+                {...rowProps}
+              />
+
+              <LazyRecommendationRow
+                title="Seasonal Highlights"
+                description="Current or recent seasons matched to your preferences."
+                items={feedData.seasonalHighlights}
+                {...rowProps}
+              />
+
+              <LazyRecommendationRow
+                title="Top Community Rated Anime"
+                description="Highly rated and reviewed by the AniRecs community."
+                items={feedData.topCommunityRated}
+                {...rowProps}
+              />
+            </>
+          )
         )}
       </div>
 

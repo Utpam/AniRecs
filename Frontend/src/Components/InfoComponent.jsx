@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
-import { useParams, NavLink } from 'react-router-dom';
+import { useParams, NavLink, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { login, showToast, toggleListOptimistic } from '../../store/AuthSlice.js';
 import Carousel from './Carousel';
@@ -8,6 +8,7 @@ import { PageLoader, AnimeDetailsSkeleton } from './Loader';
 
 function InfoComponent() {
     const { mal_id } = useParams();
+    const navigate = useNavigate();
     const [data, setData] = useState(null);
     const [characters, setCharacters] = useState([]);
     const [recommendations, setRecommendations] = useState([]);
@@ -30,7 +31,8 @@ function InfoComponent() {
     // Optimistic action helper (favorite | watched | complete | trailer)
     const handleActionClick = async (action) => {
         if (!authStatus) {
-            alert(`Please login to perform this action.`);
+            dispatch(showToast({ message: "Create an account to save anime, rate shows, and personalize recommendations.", type: "info" }));
+            navigate('/login');
             return;
         }
 
@@ -82,7 +84,8 @@ function InfoComponent() {
     // Optimistic watchlist toggle (separate because it has its own data shape)
     const handleWatchlistToggle = async () => {
         if (!authStatus) {
-            alert('Please login to manage your watchlist.');
+            dispatch(showToast({ message: "Create an account to save anime, rate shows, and personalize recommendations.", type: "info" }));
+            navigate('/login');
             return;
         }
 
@@ -212,7 +215,8 @@ function InfoComponent() {
 
     const handleRatingSubmit = async (val) => {
         if (!authStatus) {
-            alert("Please login to rate this anime.");
+            dispatch(showToast({ message: "Create an account to save anime, rate shows, and personalize recommendations.", type: "info" }));
+            navigate('/login');
             return;
         }
         setIsSubmittingRating(true);
@@ -232,7 +236,7 @@ function InfoComponent() {
             fetchRatingStats();
         } catch (err) {
             console.error("Failed to submit rating:", err);
-            alert("Failed to submit rating.");
+            dispatch(showToast({ message: "Failed to submit rating.", type: "error" }));
         } finally {
             setIsSubmittingRating(false);
         }
@@ -241,7 +245,8 @@ function InfoComponent() {
     const handleAddComment = async (e) => {
         e.preventDefault();
         if (!authStatus) {
-            alert("Please login to write comments.");
+            dispatch(showToast({ message: "Create an account to save anime, rate shows, and personalize recommendations.", type: "info" }));
+            navigate('/login');
             return;
         }
         if (!newCommentText.trim()) return;
@@ -259,7 +264,7 @@ function InfoComponent() {
             fetchRatingStats();
         } catch (err) {
             console.error("Failed to add comment:", err);
-            alert("Failed to post comment.");
+            dispatch(showToast({ message: "Failed to post comment.", type: "error" }));
         }
     };
 
@@ -275,7 +280,7 @@ function InfoComponent() {
             setEditingCommentText('');
         } catch (err) {
             console.error("Failed to edit comment:", err);
-            alert("Failed to edit comment.");
+            dispatch(showToast({ message: "Failed to edit comment.", type: "error" }));
         }
     };
 
@@ -286,13 +291,14 @@ function InfoComponent() {
             setComments(prev => prev.filter(c => c._id !== commentId));
         } catch (err) {
             console.error("Failed to delete comment:", err);
-            alert("Failed to delete comment.");
+            dispatch(showToast({ message: "Failed to delete comment.", type: "error" }));
         }
     };
 
     const handleLikeComment = async (commentId) => {
         if (!authStatus) {
-            alert("Please login to like comments.");
+            dispatch(showToast({ message: "Create an account to save anime, rate shows, and personalize recommendations.", type: "info" }));
+            navigate('/login');
             return;
         }
         try {
@@ -306,7 +312,8 @@ function InfoComponent() {
     const handleAddReview = async (e) => {
         e.preventDefault();
         if (!authStatus) {
-            alert("Please login to write reviews.");
+            dispatch(showToast({ message: "Create an account to save anime, rate shows, and personalize recommendations.", type: "info" }));
+            navigate('/login');
             return;
         }
         if (!reviewTitle.trim() || !reviewText.trim()) return;
@@ -327,7 +334,7 @@ function InfoComponent() {
             fetchRatingStats();
         } catch (err) {
             console.error("Failed to submit review:", err);
-            alert("Failed to post review. You may have already reviewed this anime.");
+            dispatch(showToast({ message: "Failed to post review. You may have already reviewed this anime.", type: "error" }));
         } finally {
             setIsSubmittingReview(false);
         }
@@ -341,13 +348,14 @@ function InfoComponent() {
             fetchRatingStats();
         } catch (err) {
             console.error("Failed to delete review:", err);
-            alert("Failed to delete review.");
+            dispatch(showToast({ message: "Failed to delete review.", type: "error" }));
         }
     };
 
     const handleLikeReview = async (reviewId) => {
         if (!authStatus) {
-            alert("Please login to like reviews.");
+            dispatch(showToast({ message: "Create an account to save anime, rate shows, and personalize recommendations.", type: "info" }));
+            navigate('/login');
             return;
         }
         try {
@@ -374,38 +382,26 @@ function InfoComponent() {
         setCharacters([]);
         setRecommendations([]);
 
-        // Fetch main details
-        axios.get(`https://api.jikan.moe/v4/anime/${mal_id}`)
+        // Fetch details from our backend instead of Jikan directly
+        axios.get(`${import.meta.env.VITE_BASE_URL}/api/anime/${mal_id}`, { withCredentials: true })
             .then(res => {
-                setData(res.data.data);
+                const metadata = res.data.data;
+                setData(metadata);
+                setCharacters(metadata.characters || []);
+
+                setRecommendations(metadata.recommendations || []);
             })
-            .catch(err => console.error("Error fetching anime details:", err))
-            .finally(() => setLoading(false));
-
-        // Stagger characters fetch to avoid API rate limit (429)
-        const charsTimeout = setTimeout(() => {
-            axios.get(`https://api.jikan.moe/v4/anime/${mal_id}/characters`)
-                .then(res => {
-                    setCharacters(res.data.data || []);
-                })
-                .catch(err => console.error("Error fetching characters:", err))
-                .finally(() => setLoadingChars(false));
-        }, 400);
-
-        // Stagger recommendations fetch to avoid API rate limit (429)
-        const recsTimeout = setTimeout(() => {
-            axios.get(`https://api.jikan.moe/v4/anime/${mal_id}/recommendations`)
-                .then(res => {
-                    setRecommendations(res.data.data || []);
-                })
-                .catch(err => console.error("Error fetching recommendations:", err))
-                .finally(() => setLoadingRecs(false));
-        }, 800);
-
-        return () => {
-            clearTimeout(charsTimeout);
-            clearTimeout(recsTimeout);
-        };
+            .catch(err => {
+                console.error("Error fetching anime details:", err);
+                setData(null);
+                setCharacters([]);
+                setRecommendations([]);
+            })
+            .finally(() => {
+                setLoading(false);
+                setLoadingChars(false);
+                setLoadingRecs(false);
+            });
     }, [mal_id]);
 
     // handleWatchlistToggle is defined above near handleActionClick
@@ -548,8 +544,7 @@ function InfoComponent() {
                                     >
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                                     </svg>
-                                    {/* {isFavorited ? 'Favorited' : 'Favorite'}/ */}
-                                    Favorite
+                                    {isFavorited ? 'Favorited' : 'Favorite'}
                                 </button>
 
                                 {/* Watched */}
@@ -1132,7 +1127,8 @@ function InfoComponent() {
                                                             <button
                                                                 onClick={() => {
                                                                     if (!authStatus) {
-                                                                        alert("Please login to write a review.");
+                                                                        dispatch(showToast({ message: "Create an account to save anime, rate shows, and personalize recommendations.", type: "info" }));
+                                                                        navigate('/login');
                                                                         return;
                                                                     }
                                                                     setIsReviewModalOpen(true);
@@ -1223,15 +1219,34 @@ function InfoComponent() {
                                                     {/* Comment Post Input Box */}
                                                     <form onSubmit={handleAddComment} className="space-y-3">
                                                         <textarea
-                                                            placeholder={authStatus ? "Add to the discussion..." : "Please login to comment..."}
-                                                            disabled={!authStatus}
-                                                            value={newCommentText}
+                                                            placeholder="Add to the discussion..."
+                                                            readOnly={!authStatus}
+                                                            value={authStatus ? newCommentText : ''}
                                                             onChange={(e) => setNewCommentText(e.target.value)}
+                                                            onClick={() => {
+                                                                if (!authStatus) {
+                                                                    dispatch(showToast({ message: "Create an account to save anime, rate shows, and personalize recommendations.", type: "info" }));
+                                                                    navigate('/login');
+                                                                }
+                                                            }}
                                                             rows={3}
                                                             maxLength={1000}
-                                                            className="w-full bg-neutral/65 border border-white/10 rounded-xl p-3.5 text-sm text-tertiary placeholder-gray-500 focus:outline-none focus:border-primary/50 transition duration-300 font-hanken-light resize-none"
+                                                            className="w-full bg-neutral/65 border border-white/10 rounded-xl p-3.5 text-sm text-tertiary placeholder-gray-500 focus:outline-none focus:border-primary/50 transition duration-300 font-hanken-light resize-none cursor-pointer"
                                                         />
-                                                        {authStatus && (
+                                                        {!authStatus ? (
+                                                            <div className="flex justify-end">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        dispatch(showToast({ message: "Create an account to save anime, rate shows, and personalize recommendations.", type: "info" }));
+                                                                        navigate('/login');
+                                                                    }}
+                                                                    className="px-5 py-1.5 bg-primary hover:bg-primary-light text-white font-hanken-bold text-xs rounded-full uppercase tracking-wider transition cursor-pointer shadow-md"
+                                                                >
+                                                                    Post Comment
+                                                                </button>
+                                                            </div>
+                                                        ) : (
                                                             <div className="flex justify-between items-center">
                                                                 <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer select-none">
                                                                     <input

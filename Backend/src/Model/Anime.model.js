@@ -6,11 +6,18 @@ const animeSchema = Schema({
     mal_id: {
         type: Number,
         required: true,
-        unique: true
+        unique: true,
+        index: true
     },
     title: {
         type: String,
-        required: true
+        required: true,
+        index: true
+    },
+    title_english: {
+        type: String,
+        default: '',
+        index: true
     },
     image: {
         type: String,

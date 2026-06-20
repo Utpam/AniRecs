@@ -1,6 +1,7 @@
 import express, { Router } from 'express';
 import dotenv from "dotenv";
 import { connectDB } from "./src/DB/db.js";
+import { initCronJobs } from './src/Utils/cronJobs.js';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import { sendMail } from './src/Utils/EmailSender.js';
@@ -14,6 +15,7 @@ const app = express();
 
 // CONNECT DB
 connectDB();
+initCronJobs();
 
 
 // Middleware

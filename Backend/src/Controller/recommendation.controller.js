@@ -1,5 +1,6 @@
 import { User } from '../Model/User.model.js';
 import { AnimeDoc } from '../Model/Anime.model.js';
+import { importAnime, lightweightImport } from '../Utils/importService.js';
 import { ApiError } from '../Utils/ApiError.js';
 import {
   calculateCosineSimilarity,
@@ -29,10 +30,39 @@ const HOMEPAGE_GENRES = [
   { key: 'sciFiRecommendations',     name: 'Sci-Fi',        rowTitle: 'Sci-Fi Recommendations',    desc: 'Futuristic science fiction and space opera.' },
 ];
 
-// Warm genre cache on startup (non-blocking)
-prefetchGenres(HOMEPAGE_GENRES.map(g => g.name), 24).catch(err =>
-  console.error('[HomeFeed] Genre prefetch error:', err?.message)
-);
+// Runtime dependence on external genre prefetching has been eliminated.
+
+const logHomeFeedDebug = (payload, allAnime) => {
+  const isDev = process.env.STATUS === 'developement' || process.env.NODE_ENV !== 'production';
+  if (!isDev) return;
+
+  const genresToLog = [
+    { key: 'comedyYoullLove',          name: 'Comedy' },
+    { key: 'romanceRecommendations',   name: 'Romance' },
+    { key: 'sliceOfLifeEssentials',    name: 'Slice of Life' },
+    { key: 'actionEssentials',         name: 'Action' },
+    { key: 'fantasyPicks',             name: 'Fantasy' },
+    { key: 'mysteryAndSuspense',       name: 'Mystery' },
+    { key: 'adventureAnime',           name: 'Adventure' },
+    { key: 'sciFiRecommendations',     name: 'Sci-Fi' }
+  ];
+
+  console.log("\n--- Homepage Genre Rows Debug Output ---");
+  genresToLog.forEach(({ key, name }) => {
+    const matchingCount = allAnime.filter(a => {
+      const gl = (a.genre && a.genre.length) ? a.genre : (a.genres || []);
+      return gl.some(g => g && (g.name || g).toString().toLowerCase() === name.toLowerCase());
+    }).length;
+
+    const items = payload[key] || [];
+    const first5Titles = items.slice(0, 5).map(item => item.title);
+
+    console.log(`Genre: ${name}`);
+    console.log(`Count: ${matchingCount}`);
+    console.log(`Sample:\n${first5Titles.map(t => `- ${t}`).join('\n')}`);
+  });
+  console.log("----------------------------------------\n");
+};
 
 // Helper to authenticate user from token in cookies
 const getUserIdFromReq = (req) => {
@@ -181,7 +211,7 @@ export const getRecommendations = async (req, res) => {
         trendingScore = Math.min(100, trendingScore + yearBoost);
 
         let customFeedbackBoost = 0;
-        const genres = anime.genres || anime.genre || [];
+        const genres = (anime.genre && anime.genre.length) ? anime.genre : (anime.genres || []);
         genres.forEach(g => {
           const name = typeof g === 'string' ? g : g.name;
           if (name && userCounts[`genre:${name}`] > 0) {
@@ -201,7 +231,7 @@ export const getRecommendations = async (req, res) => {
           score: anime.score || anime.mal_rating || 0,
           communityRating: anime.averageUserRating || 0,
           popularity: anime.popularity,
-          genres: anime.genres || anime.genre || [],
+          genres: (anime.genre && anime.genre.length) ? anime.genre : (anime.genres || []),
           studios: anime.studios || [],
           year: anime.year,
           featureVector,
@@ -279,6 +309,18 @@ export const postAction = async (req, res) => {
     const { animeId, action } = req.body;
     if (!animeId || !action) {
       return res.status(400).json({ message: 'Missing animeId or action' });
+    }
+
+    // Telemetry self-growing DB check
+    const malId = Number(animeId);
+    if (malId) {
+      const exists = await AnimeDoc.findOne({ mal_id: malId });
+      if (!exists) {
+        console.log(`[Telemetry] Anime ID ${malId} not found locally during action. Importing in background...`);
+        importAnime(malId).catch(err => {
+          console.error(`[Telemetry] Background import failed for ID ${malId}:`, err.message);
+        });
+      }
     }
 
     const user = await User.findById(userId);
@@ -422,27 +464,12 @@ export const postColdStart = async (req, res) => {
 /**
  * Endpoint to serve the personalized homepage feed with dynamic carousels
  */
-// ── Helper: build genre rows from Jikan (with local DB fallback) ──────────────
+// ── Helper: build genre rows from local DB ──────────────
 async function buildJikanGenreRows(localGenreFallbackFn) {
   const rows = {};
-
-  await Promise.allSettled(
-    HOMEPAGE_GENRES.map(async ({ key, name, rowTitle, desc }) => {
-      try {
-        const jikanItems = await getCachedGenreAnime(name, 24);
-        if (jikanItems && jikanItems.length >= 3) {
-          // Deduplicate against already fetched items
-          rows[key] = jikanItems;
-          return;
-        }
-      } catch (err) {
-        console.warn(`[HomeFeed] Jikan genre row failed for "${name}", falling back to local DB:`, err?.message);
-      }
-      // Fallback to local DB
-      rows[key] = localGenreFallbackFn ? localGenreFallbackFn(name, rowTitle, 16) : [];
-    })
-  );
-
+  HOMEPAGE_GENRES.forEach(({ key, name, rowTitle }) => {
+    rows[key] = localGenreFallbackFn ? localGenreFallbackFn(name, rowTitle, 16) : [];
+  });
   return rows;
 }
 
@@ -513,7 +540,7 @@ export const getHomeFeed = async (req, res) => {
     const getGenreFallback = (genreName, reason, limit = 10) => {
       return allAnime
         .filter(a => {
-          const gl = a.genres || a.genre || [];
+          const gl = (a.genre && a.genre.length) ? a.genre : (a.genres || []);
           return gl.some(g => {
             const name = typeof g === 'string' ? g : g.name;
             return name && name.toLowerCase() === genreName.toLowerCase();
@@ -579,7 +606,7 @@ export const getHomeFeed = async (req, res) => {
       ]);
       const genreRows = jikanRows?.value || {};
 
-      return res.status(200).json({
+      const responsePayload = {
         continueWatching: [],
         forYou: getTopRatedFallback(),
         becauseYouWatched: [],
@@ -609,7 +636,9 @@ export const getHomeFeed = async (req, res) => {
         becauseLikeFantasy: getGenreFallback('Fantasy', 'Because you enjoy Fantasy'),
         becauseLikePsychological: getGenreFallback('Psychological', 'Because you enjoy Psychological'),
         isLoggedOutFallback: true
-      });
+      };
+      logHomeFeedDebug(responsePayload, allAnime);
+      return res.status(200).json(responsePayload);
     }
 
     const user = await User.findById(userId);
@@ -632,7 +661,7 @@ export const getHomeFeed = async (req, res) => {
       ]);
       const genreRowsCold = jikanRowsCold?.value || {};
 
-      return res.status(200).json({
+      const responsePayload = {
         continueWatching: [],
         forYou: getTopRatedFallback(),
         becauseYouWatched: [],
@@ -659,7 +688,9 @@ export const getHomeFeed = async (req, res) => {
         becauseLikeAction: getGenreFallback('Action', 'Because you enjoy Action'),
         becauseLikeFantasy: getGenreFallback('Fantasy', 'Because you enjoy Fantasy'),
         becauseLikePsychological: getGenreFallback('Psychological', 'Because you enjoy Psychological')
-      });
+      };
+      logHomeFeedDebug(responsePayload, allAnime);
+      return res.status(200).json(responsePayload);
     }
 
     const userPreferenceVector = buildUserPreferenceVector(user, animeDocsMap);
@@ -706,7 +737,7 @@ export const getHomeFeed = async (req, res) => {
       trendingScore = Math.min(100, trendingScore + yearBoost);
 
       let customFeedbackBoost = 0;
-      const genres = anime.genres || anime.genre || [];
+      const genres = (anime.genre && anime.genre.length) ? anime.genre : (anime.genres || []);
       genres.forEach(g => {
         const name = typeof g === 'string' ? g : g.name;
         if (name && userCounts[`genre:${name}`] > 0) {
@@ -725,7 +756,7 @@ export const getHomeFeed = async (req, res) => {
         score: anime.score || anime.mal_rating || 0,
         communityRating: anime.averageUserRating || 0,
         popularity: anime.popularity,
-        genres: anime.genres || anime.genre || [],
+        genres: (anime.genre && anime.genre.length) ? anime.genre : (anime.genres || []),
         studios: anime.studios || [],
         year: anime.year,
         featureVector,
@@ -831,7 +862,7 @@ export const getHomeFeed = async (req, res) => {
     targetGenres.forEach(genre => {
       const count = userCounts[`genre:${genre}`] || 0;
       if (count > 0) {
-        const items = getPersonalizedRows(candidates, 'recommendationScore', 0.80, c => c.genres.some(g => (g.name || g) === genre), false);
+        const items = getPersonalizedRows(candidates, 'recommendationScore', 0.80, c => c.genres.some(g => g && (g.name || g).toString().toLowerCase() === genre.toLowerCase()), false);
         if (items.length > 0) {
           genreBasedRows.push({
             title: `Because You Like ${genre}`,
@@ -846,7 +877,7 @@ export const getHomeFeed = async (req, res) => {
     // Fallback if none matched
     if (genreBasedRows.length === 0) {
       ['Action', 'Fantasy'].forEach(genre => {
-        const items = getPersonalizedRows(candidates, 'recommendationScore', 0.80, c => c.genres.some(g => (g.name || g) === genre), false);
+        const items = getPersonalizedRows(candidates, 'recommendationScore', 0.80, c => c.genres.some(g => g && (g.name || g).toString().toLowerCase() === genre.toLowerCase()), false);
         genreBasedRows.push({
           title: `Because You Like ${genre}`,
           genre,
@@ -873,8 +904,8 @@ export const getHomeFeed = async (req, res) => {
           0.80,
           c => {
             if (mapping.theme === 'Mystery') {
-              return c.genres.some(g => (g.name || g) === 'Mystery' || (g.name || g) === 'Suspense') ||
-                     c.animeDoc.themes?.some(t => (t.name || t) === 'Mystery' || (t.name || t) === 'Suspense');
+              return c.genres.some(g => g && ( (g.name || g).toString().toLowerCase() === 'mystery' || (g.name || g).toString().toLowerCase() === 'suspense' )) ||
+                     c.animeDoc.themes?.some(t => { const tn = t && (t.name || t).toString().toLowerCase(); return tn === 'mystery' || tn === 'suspense'; });
             }
             return c.animeDoc.themes?.some(t => (t.name || t) === mapping.theme);
           },
@@ -911,7 +942,7 @@ export const getHomeFeed = async (req, res) => {
       candidates,
       'trendingScore',
       0.80,
-      c => c.genres.some(g => userTopGenres.includes(g.name || g)),
+      c => c.genres.some(g => { const name = g && (g.name || g).toString().toLowerCase(); return name && userTopGenres.some(utg => utg.toLowerCase() === name); }),
       false
     );
 
@@ -962,16 +993,16 @@ export const getHomeFeed = async (req, res) => {
       candidates,
       'recommendationScore',
       0.80,
-      c => (c.year === currentYear || c.year === currentYear - 1) && c.genres.some(g => userTopGenres.includes(g.name || g)),
+      c => (c.year === currentYear || c.year === currentYear - 1) && c.genres.some(g => { const name = g && (g.name || g).toString().toLowerCase(); return name && userTopGenres.some(utg => utg.toLowerCase() === name); }),
       false
     );
 
     // 13. Underrated Masterpieces
     const underratedMasterpieces = getPersonalizedRows(candidates, 'score', 0.70, c => c.score >= 7.8 && c.popularity >= 600, false);
 
-    const filterGenreRows = (pool, genreName, matchPct, reason) => {
+    const filterGenreRows = (pool, genreName, matchPct, reason, limit = 16) => {
       const filtered = pool.filter(c => {
-        const gl = c.genres || c.genre || [];
+        const gl = (c.genre && c.genre.length) ? c.genre : (c.genres || []);
         return gl.some(g => {
           const name = typeof g === 'string' ? g : g.name;
           return name && name.toLowerCase() === genreName.toLowerCase();
@@ -979,7 +1010,7 @@ export const getHomeFeed = async (req, res) => {
       });
       return filtered
         .sort((a, b) => b.recommendationScore - a.recommendationScore)
-        .slice(0, 10)
+        .slice(0, limit)
         .map(c => ({
           animeId: String(c.mal_id),
           title: c.title,
@@ -1035,21 +1066,9 @@ export const getHomeFeed = async (req, res) => {
       .sort((a, b) => userCounts[b] - userCounts[a])
       .map(k => k.replace('genre:', ''));
 
-    // For each homepage genre row: use local candidates first (personalised),
-    // then pad with Jikan results to reach 16 items.
+    // For each homepage genre row: use local candidates first (personalised)
     const buildPersonalisedGenreRow = async (genreName, localReason) => {
-      const localItems = filterGenreRows(candidates, genreName, 85, localReason);
-      if (localItems.length >= 12) return localItems;
-
-      // Pad with Jikan (deduplicated)
-      try {
-        const existingIds = new Set(localItems.map(i => String(i.animeId)));
-        const jikanItems = await getCachedGenreAnime(genreName, 16);
-        const padded = jikanItems.filter(j => !existingIds.has(j.animeId));
-        return [...localItems, ...padded].slice(0, 16);
-      } catch (e) {
-        return localItems;
-      }
+      return filterGenreRows(candidates, genreName, 85, localReason, 16);
     };
 
     const [
@@ -1069,7 +1088,7 @@ export const getHomeFeed = async (req, res) => {
     const safeRow = (result, fallbackFn, genre, reason) =>
       result?.status === 'fulfilled' ? result.value : (fallbackFn ? fallbackFn(genre, reason) : []);
 
-    return res.status(200).json({
+    const responsePayload = {
       continueWatching,
       forYou,
       becauseYouWatched,
@@ -1098,7 +1117,9 @@ export const getHomeFeed = async (req, res) => {
       becauseLikeAction: filterGenreRows(candidates, 'Action', 88, 'Because you enjoy Action'),
       becauseLikeFantasy: filterGenreRows(candidates, 'Fantasy', 86, 'Because you enjoy Fantasy'),
       becauseLikePsychological: filterGenreRows(candidates, 'Psychological', 90, 'Because you enjoy Psychological')
-    });
+    };
+    logHomeFeedDebug(responsePayload, allAnime);
+    return res.status(200).json(responsePayload);
 
   } catch (error) {
     console.error("Home feed recommendations error:", error);
@@ -1114,6 +1135,18 @@ export const postInteraction = async (req, res) => {
     const { animeId, type } = req.body;
     if (!animeId || !type) {
       return res.status(400).json({ message: 'Missing animeId or type' });
+    }
+
+    // Telemetry self-growing DB check
+    const malId = Number(animeId);
+    if (malId) {
+      const exists = await AnimeDoc.findOne({ mal_id: malId });
+      if (!exists) {
+        console.log(`[Telemetry] Anime ID ${malId} not found locally during interaction. Importing in background...`);
+        importAnime(malId).catch(err => {
+          console.error(`[Telemetry] Background import failed for ID ${malId}:`, err.message);
+        });
+      }
     }
 
     const user = await User.findById(userId);
@@ -1187,8 +1220,8 @@ export const precomputeAnimeVectors = async (req, res) => {
       const vector = computeFeatureVector(anime);
       
       let tags = anime.tags || [];
-      if (tags.length === 0) {
-        const genres = anime.genres || anime.genre || [];
+        if (tags.length === 0) {
+          const genres = (anime.genre && anime.genre.length) ? anime.genre : (anime.genres || []);
         const themes = anime.themes || [];
         const demographics = anime.demographics || [];
         const gTags = genres.map(g => (g.name || g || '').toLowerCase());
