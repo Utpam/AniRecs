@@ -56,7 +56,8 @@ app.use('/api/anime', animeRouter);
 app.use('/api/recommendations', recommendationRouter);
 app.use('/api/community', communityRouter);
 app.use('/api/search', searchRouter);
-app.get('/home-feed', getHomeFeed);
+app.get('/api/home-feed', getHomeFeed);
+app.get('/home-feed', getHomeFeed); // legacy redirect — safe to remove after redeploy
 
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
