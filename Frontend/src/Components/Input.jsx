@@ -1,4 +1,3 @@
-import React from 'react'
 
 function Input({label, type, className, ...rest}) {
   return (

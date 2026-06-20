@@ -2,7 +2,6 @@ import React, { useEffect } from 'react'
 import { Outlet, useNavigate } from 'react-router'
 import Navbar from './Navbar'
 import FallingParticles from '../Components/FallingParticles';
-import bg1 from '../assets/bg1.svg';
 import { useDispatch, useSelector } from 'react-redux';
 import axios from 'axios';
 import {login, hideToast} from '../../store/AuthSlice.js'

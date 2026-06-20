@@ -4,7 +4,7 @@ import { useParams, NavLink, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { login, showToast, toggleListOptimistic } from '../../store/AuthSlice.js';
 import Carousel from './Carousel';
-import { PageLoader, AnimeDetailsSkeleton } from './Loader';
+import { AnimeDetailsSkeleton } from './Loader';
 
 function InfoComponent() {
     const { mal_id } = useParams();

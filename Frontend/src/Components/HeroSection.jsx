@@ -1,6 +1,4 @@
 import React from 'react';
-import bg1 from '../assets/bg1.svg';
-import Button from './Button';
 import arrow from '../assets/arrow-right.svg';
 import { NavLink } from 'react-router-dom';
 
