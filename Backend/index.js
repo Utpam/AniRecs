@@ -45,6 +45,6 @@ app.use('/api/community', communityRouter);
 app.use('/api/search', searchRouter);
 app.get('/home-feed', getHomeFeed);
 
-app.listen(PORT, '127.0.0.1', () => {
+app.listen(PORT, () => {
     console.log("Server Is Running on : ", PORT);
 })
