@@ -56,7 +56,7 @@ app.use('/api/anime', animeRouter);
 app.use('/api/recommendations', recommendationRouter);
 app.use('/api/community', communityRouter);
 app.use('/api/search', searchRouter);
-app.get('/api/home-feed', getHomeFeed);
+app.get('/home-feed', getHomeFeed);
 
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
@@ -69,6 +69,5 @@ app.get('/api/health', (req, res) => {
 
 // ── Listen ────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
-  console.log(`[server] Running on port ${PORT} (${process.env.NODE_ENV || 'development'})`);
-  console.log(`[cors]   Allowed origins: ${ALLOWED_ORIGINS.join(', ')}`);
-});
+    console.log("Server Is Running on : ", PORT);
+})
