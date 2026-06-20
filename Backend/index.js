@@ -47,7 +47,7 @@ app.use('/api/anime', animeRouter);
 app.use('/api/recommendations', recommendationRouter);
 app.use('/api/community', communityRouter);
 app.use('/api/search', searchRouter);
-app.get('/api/home-feed', getHomeFeed);
+app.get('/home-feed', getHomeFeed);
 
 app.listen(PORT, () => {
     console.log("Server Is Running on : ", PORT);
